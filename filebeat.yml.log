@@ -1,0 +1,40 @@
+filebeat.inputs:
+  #  - type: filestream 
+  - type: log 
+    id: mpc-log-debug
+    enabled: true
+    paths:
+      - /tmp/node1
+    fields:
+      service: schnorrmpc
+      type: "debug"
+    fields_under_root: true
+
+    # --- 添加 ignore_older ---
+    # 忽略最后修改时间超过 24 小时的文件
+    ignore_older: 24h
+    # 配合使用：如果文件被忽略了，但在 24 小时内又有新内容，它会重新被拾取
+    # 对于 filestream，通常建议也设置 clean_inactive
+    prospector.scanner.rescan_interval: 10s
+
+# --- 核心修复：删除会导致冲突的字段 ---
+processors:
+  - drop_fields:
+      fields: ["host", "agent", "ecs", "log", "input"]
+      ignore_missing: true
+
+output.elasticsearch:
+  hosts: ["54.245.132.112:9200"]
+  username: "logstash"
+  password: "WanSwap20210401"
+  index: "debug-%{+yyyy.MM.dd}"
+  # --- 关键修复：禁用版本检查和自动上报 ---
+  allow_older_versions: true
+
+# --- 完全禁用模板和 ILM 设置，避免 405 错误 ---
+setup.template.enabled: false
+setup.ilm.enabled: false
+
+logging.level: info
+logging.to_stdout: true
+
