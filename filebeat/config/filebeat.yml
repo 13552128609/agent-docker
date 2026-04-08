@@ -1,0 +1,45 @@
+filebeat.inputs:
+- type: filestream 
+  id: mpc-log-debug
+  enabled: true
+  paths:
+    - /logs/test.log
+  fields:
+    service: schnorrmpc
+      #    type: "debug"
+  fields_under_root: true
+  ignore_older: 24h
+  prospector.scanner.rescan_interval: 10s
+
+processors:
+  - add_fields:
+      target: ''
+      fields:
+        node_name: 'unknown'
+  - script:
+      lang: javascript
+      source: |
+        function process(event) {
+            var path = event.Get("log.file.path");
+            if (path) {
+                var match = path.match(/storeman[0-9\-]+/);
+                if (match) {
+                    event.Put("node_name", match[0]);
+                } else {
+                    event.Put("node_name", "no_match_" + path.substring(0,10));
+                }
+            }
+        }
+  - drop_fields:
+      fields: ["host", "agent", "ecs", "log", "input"]
+      ignore_missing: true
+
+output.logstash:
+  #hosts: ["54.245.132.112:1518"]
+  hosts: ["log.wanchain.org:1518"]
+
+setup.template.enabled: false
+setup.ilm.enabled: false
+logging.level: info
+logging.to_stdout: true
+
